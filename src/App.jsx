@@ -1,6 +1,7 @@
 
 import { useState } from "react";
 import "./App.css";
+import api from "./api/axios";
 
 const initialAnswers = {
   name: "",
@@ -21,6 +22,7 @@ export default function App() {
   const [answers, setAnswers] = useState(initialAnswers);
   const [direction, setDirection] = useState("next");
   const [error, setError] = useState("");
+  const [saving, setSaving] = useState(false);
 
   const update = (field, value) => {
     setAnswers((prev) => ({ ...prev, [field]: value }));
@@ -57,6 +59,50 @@ export default function App() {
     moveTo(screen + 1);
   };
 
+  // Send the answers to Express, which saves them in CockroachDB.
+  const saveResponse = async () => {
+    if (saving) return;
+
+    setSaving(true);
+    setError("");
+
+    try {
+      const payload = {
+        name: answers.name.trim(),
+        section: answers.section,
+        rollNumber: answers.rollNumber.trim(),
+        foodPreference: answers.foodPreference,
+      };
+
+      const response = await api.post("/api/responses", payload);
+
+      if (!response.data?.success) {
+        throw new Error(
+          response.data?.message || "Unable to save your response."
+        );
+      }
+
+      // Reveal the poster only after the backend confirms success.
+      moveTo(6);
+    } catch (err) {
+      if (err.response?.status === 409) {
+        setError(
+          err.response.data?.message ||
+            "This roll number has already submitted a response."
+        );
+      } else {
+        setError(
+          err.response?.data?.message ||
+            (err.code === "ECONNABORTED"
+              ? "The request timed out. Please try again."
+              : "Unable to save your response. Check your connection and try again.")
+        );
+      }
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const resetExperience = () => {
     setAnswers(initialAnswers);
     moveTo(0);
@@ -68,7 +114,9 @@ export default function App() {
         return (
           <>
             <p className="eyebrow">IDENTITY VERIFICATION // 01</p>
-            <h1>What is your <span>good name?</span></h1>
+            <h1>
+              What is your <span>good name?</span>
+            </h1>
             <p className="description">
               Every legend needs a name. Let's start there.
             </p>
@@ -94,7 +142,9 @@ export default function App() {
         return (
           <>
             <p className="eyebrow">ACADEMIC SCAN // 02</p>
-            <h1>Which section are <span>you from?</span></h1>
+            <h1>
+              Which section are <span>you from?</span>
+            </h1>
             <p className="description">
               Locating your position in the MCA universe.
             </p>
@@ -119,7 +169,9 @@ export default function App() {
         return (
           <>
             <p className="eyebrow">RECORD MATCH // 03</p>
-            <h1>Enter your <span>roll number.</span></h1>
+            <h1>
+              Enter your <span>roll number.</span>
+            </h1>
             <p className="description">
               Just a tiny check before the system proceeds.
             </p>
@@ -135,7 +187,7 @@ export default function App() {
               onKeyDown={(e) => {
                 if (e.key === "Enter") continueQuestion();
               }}
-              maxLength={40}
+              maxLength={30}
             />
           </>
         );
@@ -144,13 +196,16 @@ export default function App() {
         return (
           <>
             <p className="eyebrow">CRITICAL SYSTEM QUERY // 04</p>
-            <h1>One serious <span>question.</span></h1>
+            <h1>
+              One serious <span>question.</span>
+            </h1>
             <p className="description">
               Our party planning algorithm needs this information.
             </p>
             <p className="food-question">What goes on your plate?</p>
             <div className="choice-grid">
               <button
+                type="button"
                 className={`choice-card ${
                   answers.foodPreference === "Veg" ? "selected" : ""
                 }`}
@@ -160,7 +215,9 @@ export default function App() {
                 <span>VEG</span>
                 <small>Plant-powered</small>
               </button>
+
               <button
+                type="button"
                 className={`choice-card ${
                   answers.foodPreference === "Non-Veg" ? "selected" : ""
                 }`}
@@ -180,23 +237,39 @@ export default function App() {
             <div className="heart-orbit">
               <span>♥</span>
             </div>
+
             <p className="eyebrow">DATA COLLECTION // COMPLETE</p>
-            <h1>Your data is saved<br />in our <span>heart.</span></h1>
+            <h1>
+              Your data is saved
+              <br />
+              in our <span>heart.</span>
+            </h1>
+
             <p className="description">
               All checks complete, {answers.name.trim()}.
               <br />
               One final step remains.
             </p>
+
             <p className="terminal-line">
               &gt; SECRET_INVITATION.exe is ready
             </p>
+
             <button
+              type="button"
               className="primary-button reveal-button"
-              onClick={() => moveTo(6)}
+              onClick={saveResponse}
+              disabled={saving}
             >
-              YES, REVEAL IT <span>↗</span>
+              {saving ? "SAVING YOUR RESPONSE..." : "YES, REVEAL IT"}
+              {!saving && <span> ↗</span>}
             </button>
-            <p className="micro-copy">WARNING: happiness may increase.</p>
+
+            <p className="micro-copy">
+              {saving
+                ? "TRANSMITTING DATA TO THE SERVER..."
+                : "WARNING: happiness may increase."}
+            </p>
           </div>
         );
 
@@ -204,10 +277,13 @@ export default function App() {
         return (
           <div className="poster-content">
             <p className="eyebrow">TRANSMISSION RECEIVED // SUCCESS</p>
-            <h1>You're <span>invited!</span></h1>
+            <h1>
+              You're <span>invited!</span>
+            </h1>
             <p className="description">
               The secret is out. Get ready for a good time.
             </p>
+
             <div className="poster-frame">
               <img
                 src="/invitation-poster.png"
@@ -217,6 +293,7 @@ export default function App() {
                   e.currentTarget.nextElementSibling.style.display = "flex";
                 }}
               />
+
               <div className="poster-placeholder">
                 <span className="placeholder-icon">✳</span>
                 <strong>YOUR PARTY POSTER</strong>
@@ -225,10 +302,16 @@ export default function App() {
                 </span>
               </div>
             </div>
+
             <p className="terminal-line">
               &gt; ATTENDANCE_STATUS: HOPEFULLY_CONFIRMED
             </p>
-            <button className="secondary-button" onClick={resetExperience}>
+
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={resetExperience}
+            >
               ↻ RESTART EXPERIENCE
             </button>
           </div>
@@ -241,31 +324,44 @@ export default function App() {
               <span>MCA</span>
               <i />
             </div>
-            <p className="eyebrow">INCOMING TRANSMISSION // MCA NETWORK</p>
-            <h1>Hello, <span>Juniors!</span></h1>
+
+            <p className="eyebrow">
+              INCOMING TRANSMISSION // MCA NETWORK
+            </p>
+
+            <h1>
+              Hello, <span>Juniors!</span>
+            </h1>
+
             <p className="description">
               Want to witness a joyful surprise?
               <br />
               Something special is waiting for you.
             </p>
+
             <div className="boot-status">
               <span className="status-dot" />
               SURPRISE PROTOCOL INITIALIZED
             </div>
+
             <button
+              type="button"
               className="primary-button"
               onClick={() => moveTo(1)}
             >
               LET'S BEGIN <span>→</span>
             </button>
-            <p className="micro-copy">[ ACCESS GRANTED TO MCA JUNIORS ]</p>
+
+            <p className="micro-copy">
+              [ ACCESS GRANTED TO MCA JUNIORS ]
+            </p>
           </div>
         );
     }
   };
 
   const isQuestion = screen >= 1 && screen <= 4;
-  const activeStep = screen >= 1 && screen <= 4 ? screen - 1 : 0;
+  const activeStep = isQuestion ? screen - 1 : 0;
 
   return (
     <main className="app-shell">
@@ -274,12 +370,17 @@ export default function App() {
 
       <header className="topbar">
         <div className="brand">
-          <div className="brand-mark">K<span>.</span></div>
+          <div className="brand-mark">
+            K<span>.</span>
+          </div>
           <div>
-            <strong>JUNIOR<span>.OS</span></strong>
+            <strong>
+              JUNIOR<span>.OS</span>
+            </strong>
             <small>THE SURPRISE INITIATIVE</small>
           </div>
         </div>
+
         <div className="connection-status">
           <span className="status-dot" />
           SYSTEM ONLINE
@@ -300,12 +401,16 @@ export default function App() {
                 <span>PROGRESS TRACKER</span>
                 <span>0{activeStep + 1} / 04</span>
               </div>
+
               <div className="progress-track">
                 <div
                   className="progress-fill"
-                  style={{ width: `${((activeStep + 1) / 4) * 100}%` }}
+                  style={{
+                    width: `${((activeStep + 1) / 4) * 100}%`,
+                  }}
                 />
               </div>
+
               <div className="step-labels">
                 {steps.map((item, index) => (
                   <span
@@ -331,12 +436,15 @@ export default function App() {
             {isQuestion && (
               <div className="navigation-row">
                 <button
+                  type="button"
                   className="back-button"
                   onClick={() => moveTo(screen - 1)}
                 >
                   ← BACK
                 </button>
+
                 <button
+                  type="button"
                   className="primary-button next-button"
                   onClick={continueQuestion}
                 >
@@ -356,8 +464,12 @@ export default function App() {
 
       <footer className="footer">
         <span>© 2026 // BUILT FOR THE MCA CREW</span>
-        <span className="footer-center">GOOD VIBES. GREAT MEMORIES.</span>
-        <span>END-TO-END JOY <b>●</b></span>
+        <span className="footer-center">
+          GOOD VIBES. GREAT MEMORIES.
+        </span>
+        <span>
+          END-TO-END JOY <b>●</b>
+        </span>
       </footer>
     </main>
   );
