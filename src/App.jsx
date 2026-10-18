@@ -463,7 +463,7 @@ export default function App() {
       </section>
 
       <footer className="footer">
-        <span>© 2026 // BUILT FOR THE MCA CREW</span>
+        <span>© 2026 // Your copyright holder eg:: kirtiprasant it solutions</span>
         <span className="footer-center">
           GOOD VIBES. GREAT MEMORIES.
         </span>
