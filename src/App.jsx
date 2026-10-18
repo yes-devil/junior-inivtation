@@ -371,7 +371,7 @@ export default function App() {
       <header className="topbar">
         <div className="brand">
           <div className="brand-mark">
-            K<span>.</span>
+            👍<span>.</span>
           </div>
           <div>
             <strong>
